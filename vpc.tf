@@ -11,9 +11,27 @@ module "vpc" {
   enable_nat_gateway = true
   single_nat_gateway = true
   create_igw = true
+  map_public_ip_on_launch = true
 
   tags = {
     Terraform = "true"
     Environment = "dev"
   }
+}
+
+resource "null_resource" "add_custom_tags_to_public_subnet" {
+  triggers = {
+    always_run = "${timestamp()}"
+  }
+
+  provisioner "local-exec" {
+    command = <<EOF
+aws ec2 create-tags --resources ${module.vpc.public_subnets[0]} --tags "Key=kubernetes.io/role/elb, Value=1"
+aws ec2 create-tags --resources ${module.vpc.public_subnets[0]} --tags "Key=kubernetes.io/cluster/${var.cluster_name}, Value=shared"
+EOF
+  }
+
+  depends_on = [
+    module.vpc.public_subnets
+  ]
 }
